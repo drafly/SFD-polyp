@@ -28,7 +28,7 @@ class JPGPairImageGenerator(Dataset):
         target_files = sorted(glob(os.path.join(self.target_folder, '*.png')))
         pairs = []
         for input_file, target_file in zip(input_files, target_files):
-            assert int("".join(re.findall("\d", input_file))) == int("".join(re.findall("\d", target_file)))
+            assert int("".join(re.findall(r"\d", input_file))) == int("".join(re.findall(r"\d", target_file)))
             pairs.append((input_file, target_file))
         return pairs
 
@@ -73,5 +73,4 @@ class JPGPairImageGenerator(Dataset):
 
         return {'input': input_img, 'target': target_img}
 # -
-
 

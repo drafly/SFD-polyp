@@ -24,8 +24,11 @@ def get_neighbors(labels, segments):
 
 def process_batch(image_paths, mask_paths,
                   save_mask_dir, save_seg_dir,
-                  save_superpixel_dir,   #
-                  n_segments=200, compactness=10):
+                  save_superpixel_dir,  #
+                  n_segments=200, compactness=10, STAT=None):
+
+    if STAT is None:
+        STAT = {"use_original": 0, "use_bfs": 0}
 
     color_list = [(255, 0, 0), (255, 165, 0),
                   (255, 255, 0), (0, 255, 0), (0, 0, 255)]
@@ -190,6 +193,8 @@ def process_images_in_batches(image_dir, mask_dir,
 
     total_batches = (len(image_list) + batch_size - 1) // batch_size
 
+    STAT = {"use_original": 0, "use_bfs": 0}
+
     for b in tqdm(range(total_batches), desc="Processing batches"):
         s = b * batch_size
         e = min(s + batch_size, len(image_list))
@@ -201,20 +206,25 @@ def process_images_in_batches(image_dir, mask_dir,
             save_seg_dir,
             save_superpixel_dir,
             n_segments,
-            compactness
+            compactness,
+            STAT
         )
+
+    print("use_original:", STAT["use_original"], " use_bfs:", STAT["use_bfs"])
 
     
 if __name__ == "__main__":
 
-    image_dir = "/root/autodl-tmp/TrainDataset/images"
-    mask_dir = "/root/autodl-tmp/TrainDataset/masks"
+    BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
-    save_mask_dir = "/root/autodl-tmp/"
-    save_seg_dir = "/root/autodl-tmp/"
+    image_dir = os.path.join(BASE_DIR, "data", "Train", "images")
+    mask_dir = os.path.join(BASE_DIR, "data", "Train", "masks")
 
-    # 
-    save_superpixel_dir = "/root/autodl-tmp/"
+    save_mask_dir = os.path.join(BASE_DIR, "processed", "masks")
+    save_seg_dir = os.path.join(BASE_DIR, "processed", "seg")
+
+    #
+    save_superpixel_dir = os.path.join(BASE_DIR, "processed", "superpixel")
 
     process_images_in_batches(
         image_dir,

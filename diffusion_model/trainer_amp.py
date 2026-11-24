@@ -62,12 +62,6 @@ def num_to_groups(num, divisor):
     return arr
 
 
-def loss_backwards(fp16, loss, optimizer, **kwargs):
-    if fp16:
-        with amp.scale_loss(loss, optimizer) as scaled_loss:
-            scaled_loss.backward(**kwargs)
-    else:
-        loss.backward(**kwargs)
 
 
 # small helper modules
@@ -379,6 +373,18 @@ class Trainer(object):
         self.model.load_state_dict(data['model'])
         self.ema_model.load_state_dict(data['ema'])
 
+    def save_and_sample(self, milestone):
+        """采样 4 张图并同时存档（权重 + 采样图）"""
+        batches = num_to_groups(4, self.batch_size)
+        all_images_list = list(map(lambda n: self.ema_model.sample(
+            batch_size=n,
+            condition_tensors=self.ds.sample_conditions(batch_size=n)), batches))
+        all_images = torch.cat(all_images_list, dim=0)
+        all_images = (all_images + 1) * 0.5
+        utils.save_image(all_images, str(self.results_folder / f'sample-{milestone}.png'), nrow=2)
+        self.save(milestone)
+        print(f'milestone {milestone} saved')
+
     def train(self):
         # backwards = partial(loss_backwards, self.fp16)
         start_time = time.time()
@@ -421,19 +427,21 @@ class Trainer(object):
                 self.step_ema()
 
             if self.step != 0 and self.step % self.save_and_sample_every == 0:
-                milestone = self.step // self.save_and_sample_every
-                batches = num_to_groups(4, self.batch_size)
-
-                all_images_list = list(map(lambda n: self.ema_model.sample(batch_size=n,
-                                                                           condition_tensors=self.ds.sample_conditions(
-                                                                               batch_size=n)), batches))
-
-                all_images = torch.cat(all_images_list, dim=0)
-                all_images = (all_images + 1) * 0.5
-                utils.save_image(all_images, str(self.results_folder / f'sample-{milestone}.png'), nrow=2)
-                self.save(milestone)
+                self.save_and_sample(self.step // self.save_and_sample_every)
 
             self.step += 1
+
+        # 训练结束补存最终状态：循环只迭代到 train_num_steps-1，
+        # 若最终步数正好是存档点（本例 200000 % 10000 == 0），循环里不会被命中
+        final_step = self.step
+        final_milestone = final_step // self.save_and_sample_every
+        if final_step % self.save_and_sample_every != 0:
+            final_milestone += 1
+        print(f'final step = {final_step}, saving milestone {final_milestone} ...')
+        try:
+            self.save_and_sample(final_milestone)
+        except Exception as exc:
+            print('final save failed:', exc)
 
         print('Training completed')
         end_time = time.time()

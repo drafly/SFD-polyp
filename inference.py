@@ -8,7 +8,7 @@ import glob
 import cv2
 import os
 import numpy as np
-from imgaug import augmenters as iaa
+# from imgaug import augmenters as iaa   # 未使用；且 imgaug 与 numpy 2.x 不兼容，注释掉以便本地运行
 from concurrent.futures import ProcessPoolExecutor, as_completed
 import time
 import uuid
@@ -23,10 +23,11 @@ os.environ["CUDA_VISIBLE_DEVICES"]="0"
 
 # +
 parser = argparse.ArgumentParser()
-parser.add_argument('-i', '--inputfolder', type=str, default="/root/autodl-tmp/ ")
-parser.add_argument('-e', '--exportfolder', type=str, default='/root/autodl-tmp/')
-parser.add_argument('-w', '--weightfile', type=str, default='/root/autodl-tmp/')
-parser.add_argument('-s', '--stylefolder', type=str, default='/root/autodl-tmp/')
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+parser.add_argument('-i', '--inputfolder', type=str, default=os.path.join(BASE_DIR, 'data', 'Train', 'masks'))
+parser.add_argument('-e', '--exportfolder', type=str, default=os.path.join(BASE_DIR, 'generated'))
+parser.add_argument('-w', '--weightfile', type=str, default=os.path.join(BASE_DIR, 'base_SIM_style1.0_new', 'model-1.pt'))
+parser.add_argument('-s', '--stylefolder', type=str, default=os.path.join(BASE_DIR, 'data', 'Train', 'images'))
 parser.add_argument('-d', '--device', type=str, default='cuda')
 parser.add_argument('--input_size', type=int, default=256)
 parser.add_argument('--num_channels', type=int, default=64)
@@ -93,7 +94,7 @@ for k, inputfile in enumerate(mask_list):
     img = np.array(img)
     input_tensor = input_transform(img)
     input_tensor = input_tensor.unsqueeze(0)
-    msk_name = inputfile.split('/')[-1]
+    msk_name = os.path.basename(inputfile)
     
     steps = len(batches)
     sample_count = 0

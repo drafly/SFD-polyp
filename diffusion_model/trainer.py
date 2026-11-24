@@ -27,13 +27,8 @@ from torch.utils.tensorboard import SummaryWriter
 import datetime
 import time
 
-try:
-    from apex import amp
-    APEX_AVAILABLE = True
-    print("APEX: ON")
-except:
-    APEX_AVAILABLE = False
-    print("APEX: OFF")
+# 本项目未安装 apex，混合精度统一使用 torch.cuda.amp
+APEX_AVAILABLE = False
 
 def exists(x):
     return x is not None
@@ -56,12 +51,6 @@ def num_to_groups(num, divisor):
         arr.append(remainder)
     return arr
 
-def loss_backwards(fp16, loss, optimizer, **kwargs):
-    if fp16:
-        with amp.scale_loss(loss, optimizer) as scaled_loss:
-            scaled_loss.backward(**kwargs)
-    else:
-        loss.backward(**kwargs)
 
 # small helper modules
 
@@ -314,7 +303,7 @@ class Trainer(object):
 
         self.fp16 = fp16
         if fp16:
-            (self.model, self.ema_model), self.opt = amp.initialize([self.model, self.ema_model], self.opt, opt_level='O1')
+            raise RuntimeError('本环境未安装 apex，请使用 trainer_amp.py 的 amp 混合精度')
 
         self.results_folder = Path(results_folder)
         self.results_folder.mkdir(exist_ok = True)
@@ -355,7 +344,6 @@ class Trainer(object):
         self.ema_model.load_state_dict(data['ema'])
 
     def train(self):
-        backwards = partial(loss_backwards, self.fp16)
         start_time = time.time()
         
         while self.step < self.train_num_steps:
@@ -366,7 +354,7 @@ class Trainer(object):
                 loss = self.model(target_tensors, condition_tensors=input_tensors)
                 loss = loss.sum()/self.batch_size
                 print(f'{self.step}: {loss.item()}')
-                backwards(loss / self.gradient_accumulate_every, self.opt)
+                (loss / self.gradient_accumulate_every).backward()
 
             self.opt.step()
             self.opt.zero_grad()
